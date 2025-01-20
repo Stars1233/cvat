@@ -65,7 +65,6 @@ import { Organization, getCore } from 'cvat-core-wrapper';
 import {
     ErrorState, NotificationState, NotificationsState, PluginsState,
 } from 'reducers';
-import { customWaViewHit } from 'utils/environment';
 import showPlatformNotification, {
     platformInfo,
     stopNotifications,
@@ -81,6 +80,7 @@ import EmailVerificationSentPage from './email-confirmation-pages/email-verifica
 import IncorrectEmailConfirmationPage from './email-confirmation-pages/incorrect-email-confirmation';
 import CreateJobPage from './create-job-page/create-job-page';
 import AnalyticsPage from './analytics-page/analytics-page';
+import QualityControlPage from './quality-control/quality-control-page';
 import InvitationWatcher from './invitation-watcher/invitation-watcher';
 
 interface CVATAppProps {
@@ -141,7 +141,7 @@ class CVATApplication extends React.PureComponent<CVATAppProps & RouteComponentP
 
     public componentDidMount(): void {
         const core = getCore();
-        const { history, location, onChangeLocation } = this.props;
+        const { history, onChangeLocation } = this.props;
         const {
             HEALTH_CHECK_RETRIES, HEALTH_CHECK_PERIOD, HEALTH_CHECK_REQUEST_TIMEOUT,
             SERVER_UNAVAILABLE_COMPONENT, RESET_NOTIFICATIONS_PATHS,
@@ -169,9 +169,7 @@ class CVATApplication extends React.PureComponent<CVATAppProps & RouteComponentP
             }
         };
 
-        customWaViewHit(location.pathname, location.search, location.hash);
         history.listen((newLocation) => {
-            customWaViewHit(newLocation.pathname, newLocation.search, newLocation.hash);
             const { location: prevLocation } = this.props;
 
             onChangeLocation(prevLocation.pathname, newLocation.pathname);
@@ -397,18 +395,21 @@ class CVATApplication extends React.PureComponent<CVATAppProps & RouteComponentP
         function showError(title: string, _error: Error, shouldLog?: boolean, className?: string): void {
             const error = _error?.message || _error.toString();
             const dynamicProps = typeof className === 'undefined' ? {} : { className };
+
             let errorLength = error.length;
             // Do not count the length of the link in the Markdown error message
             if (/]\(.+\)/.test(error)) {
                 errorLength = error.replace(/]\(.+\)/, ']').length;
             }
+
             notification.error({
                 ...dynamicProps,
                 message: (
                     <CVATMarkdown history={history}>{title}</CVATMarkdown>
                 ),
                 duration: null,
-                description: errorLength > 300 ? 'Open the Browser Console to get details' : <CVATMarkdown history={history}>{error}</CVATMarkdown>,
+                description: errorLength > appConfig.MAXIMUM_NOTIFICATION_MESSAGE_LENGTH ?
+                    'Open the Browser Console to get details' : <CVATMarkdown history={history}>{error}</CVATMarkdown>,
             });
 
             if (shouldLog) {
@@ -483,10 +484,6 @@ class CVATApplication extends React.PureComponent<CVATAppProps & RouteComponentP
             .filter(({ data: { shouldBeRendered } }) => shouldBeRendered(this.props, this.state))
             .map(({ component: Component }) => Component());
 
-        const loggedInModals = pluginComponents.loggedInModals
-            .filter(({ data: { shouldBeRendered } }) => shouldBeRendered(this.props, this.state))
-            .map(({ component: Component }) => Component);
-
         const queryParams = new URLSearchParams(location.search);
         const authParams = authQuery(queryParams);
 
@@ -511,6 +508,7 @@ class CVATApplication extends React.PureComponent<CVATAppProps & RouteComponentP
                                         <Route exact path='/tasks/create' component={CreateTaskPageContainer} />
                                         <Route exact path='/tasks/:id' component={TaskPageComponent} />
                                         <Route exact path='/tasks/:tid/analytics' component={AnalyticsPage} />
+                                        <Route exact path='/tasks/:tid/quality-control' component={QualityControlPage} />
                                         <Route exact path='/tasks/:id/jobs/create' component={CreateJobPage} />
                                         <Route exact path='/tasks/:id/guide' component={AnnotationGuidePage} />
                                         <Route exact path='/tasks/:tid/jobs/:jid' component={AnnotationPageContainer} />
@@ -562,9 +560,6 @@ class CVATApplication extends React.PureComponent<CVATAppProps & RouteComponentP
                                     <ImportBackupModal />
                                     <InvitationWatcher />
                                     <UploadFileStatusModal />
-                                    { loggedInModals.map((Component, idx) => (
-                                        <Component key={idx} targetProps={this.props} targetState={this.state} />
-                                    ))}
                                     {/* eslint-disable-next-line */}
                                     <a id='downloadAnchor' target='_blank' style={{ display: 'none' }} download />
                                 </Layout.Content>

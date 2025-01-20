@@ -8,10 +8,10 @@ import { Canvas, RectDrawingMethod, CuboidDrawingMethod } from 'cvat-canvas-wrap
 import {
     Webhook, MLModel, Organization, Job, Task, Project, Label, User,
     QualityConflict, FramesMetaData, RQStatus, Event, Invitation, SerializedAPISchema,
-    Request,
+    Request, JobValidationLayout, QualitySettings, TaskValidationLayout, ObjectState,
 } from 'cvat-core-wrapper';
 import { IntelligentScissors } from 'utils/opencv-wrapper/intelligent-scissors';
-import { KeyMap } from 'utils/mousetrap-react';
+import { KeyMap, KeyMapItem } from 'utils/mousetrap-react';
 import { OpenCVTracker } from 'utils/opencv-wrapper/opencv-interfaces';
 import { ImageFilter } from 'utils/image-processing';
 
@@ -38,6 +38,7 @@ interface Preview {
 }
 
 export interface ProjectsState {
+    fetchingTimestamp: number;
     initialized: boolean;
     fetching: boolean;
     count: number;
@@ -75,6 +76,7 @@ export interface JobsQuery {
 }
 
 export interface JobsState {
+    fetchingTimestamp: number;
     query: JobsQuery;
     fetching: boolean;
     count: number;
@@ -90,6 +92,7 @@ export interface JobsState {
 }
 
 export interface TasksState {
+    fetchingTimestamp: number;
     initialized: boolean;
     fetching: boolean;
     moveTask: {
@@ -260,6 +263,30 @@ export interface PluginsState {
             };
         };
     };
+    overridableComponents: {
+        annotationPage: {
+            header: {
+                saveAnnotationButton: (() => JSX.Element)[];
+            };
+        };
+        qualityControlPage: {
+            overviewTab: ((props: {
+                task: Task;
+                qualitySettings: QualitySettings;
+            }) => JSX.Element)[];
+
+            allocationTable: ((
+                props: {
+                    task: Task;
+                    gtJobId: number;
+                    gtJobMeta: FramesMetaData;
+                    qualitySettings: QualitySettings;
+                    validationLayout: TaskValidationLayout;
+                    onDeleteFrames: (frames: number[]) => void;
+                    onRestoreFrames: (frames: number[]) => void;
+                }) => JSX.Element)[];
+        };
+    },
     components: {
         header: {
             userMenu: {
@@ -296,11 +323,6 @@ export interface PluginsState {
         projectItem: {
             ribbon: PluginComponent[];
         };
-        annotationPage: {
-            header: {
-                player: PluginComponent[];
-            };
-        };
         settings: {
             player: PluginComponent[];
         };
@@ -310,15 +332,12 @@ export interface PluginsState {
             };
         };
         router: PluginComponent[];
-        loggedInModals: PluginComponent[];
     }
 }
 
 export interface AboutState {
     server: any;
     packageVersion: {
-        core: string;
-        canvas: string;
         ui: string;
     };
     fetching: boolean;
@@ -676,6 +695,10 @@ export enum NavigationType {
     EMPTY = 'empty',
 }
 
+export interface EditingState {
+    objectState: ObjectState | null;
+}
+
 export interface AnnotationState {
     activities: {
         loads: {
@@ -701,19 +724,25 @@ export interface AnnotationState {
         instance: Canvas | Canvas3d | null;
         ready: boolean;
         activeControl: ActiveControl;
+        activeObjectHidden: boolean;
     };
     job: {
         openTime: null | number;
         labels: Label[];
         requestedId: number | null;
+        meta: FramesMetaData | null;
         instance: Job | null | undefined;
+        frameNumbers: number[];
         queryParameters: {
             initialOpenGuide: boolean;
             defaultLabel: string | null;
             defaultPointsCount: number | null;
         };
-        groundTruthJobFramesMeta: FramesMetaData | null;
-        groundTruthInstance: Job | null;
+        groundTruthInfo: {
+            validationLayout: JobValidationLayout | null;
+            groundTruthJobFramesMeta: FramesMetaData | null;
+            groundTruthInstance: Job | null;
+        },
         attributes: Record<number, any[]>;
         fetching: boolean;
         saving: boolean;
@@ -738,7 +767,7 @@ export interface AnnotationState {
     drawing: {
         activeInteractor?: MLModel | OpenCVTool;
         activeInteractorParameters?: MLModel['params']['canvas'];
-        activeShapeType: ShapeType;
+        activeShapeType: ShapeType | null;
         activeRectDrawingMethod?: RectDrawingMethod;
         activeCuboidDrawingMethod?: CuboidDrawingMethod;
         activeNumOfPoints?: number;
@@ -746,6 +775,7 @@ export interface AnnotationState {
         activeObjectType: ObjectType;
         activeInitialState?: any;
     };
+    editing: EditingState;
     annotations: {
         activatedStateID: number | null;
         activatedElementID: number | null;
@@ -879,6 +909,7 @@ export interface ShortcutsState {
     visibleShortcutsHelp: boolean;
     keyMap: KeyMap;
     normalizedKeyMap: Record<string, string>;
+    defaultState: Record<string, KeyMapItem>
 }
 
 export enum StorageLocation {

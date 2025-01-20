@@ -79,13 +79,13 @@ const componentShortcuts = {
         name: 'Show shortcuts',
         description: 'Open/hide the list of available shortcuts',
         sequences: ['f1'],
-        scope: ShortcutScope.ALL,
+        scope: ShortcutScope.GENERAL,
     },
     SWITCH_SETTINGS: {
         name: 'Show settings',
         description: 'Open/hide settings dialog',
         sequences: ['f2'],
-        scope: ShortcutScope.ALL,
+        scope: ShortcutScope.GENERAL,
     },
 };
 
@@ -258,14 +258,6 @@ function HeaderComponent(props: Props): JSX.Element {
                     <p>
                         <Text strong>Server version:</Text>
                         <Text type='secondary'>{` ${about.server.version}`}</Text>
-                    </p>
-                    <p>
-                        <Text strong>Core version:</Text>
-                        <Text type='secondary'>{` ${about.packageVersion.core}`}</Text>
-                    </p>
-                    <p>
-                        <Text strong>Canvas version:</Text>
-                        <Text type='secondary'>{` ${about.packageVersion.canvas}`}</Text>
                     </p>
                     <p>
                         <Text strong>UI version:</Text>
@@ -513,7 +505,7 @@ function HeaderComponent(props: Props): JSX.Element {
                         Models
                     </Button>
                 ) : null}
-                {isAnalyticsPluginActive && user.isSuperuser ? (
+                {isAnalyticsPluginActive && user.hasAnalyticsAccess ? (
                     <Button
                         className={getButtonClassName('analytics', false)}
                         type='link'
